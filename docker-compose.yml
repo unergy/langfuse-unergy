@@ -8,14 +8,16 @@
 # Make sure your host Postgres is listening on 0.0.0.0 (or the Docker bridge interface) and allows
 # connections from the Docker network (e.g. add a rule for 172.17.0.0/16 in pg_hba.conf).
 # Update DATABASE_URL (# CHANGEME) with the correct host credentials before starting.
+#
+# PREREQUISITE: This compose file also expects a Redis instance running on the host machine (port 6379).
+# Make sure your host Redis is listening on 0.0.0.0 (or the Docker bridge interface) so that
+# containers can reach it via host.docker.internal. Update REDIS_AUTH (# CHANGEME) if Redis requires a password.
 services:
   langfuse-worker:
     image: docker.io/langfuse/langfuse-worker:3
     restart: always
     depends_on: &langfuse-depends-on
       minio:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
@@ -61,7 +63,7 @@ services:
       LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE: ${LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE:-true}
       LANGFUSE_INGESTION_QUEUE_DELAY_MS: ${LANGFUSE_INGESTION_QUEUE_DELAY_MS:-}
       LANGFUSE_INGESTION_CLICKHOUSE_WRITE_INTERVAL_MS: ${LANGFUSE_INGESTION_CLICKHOUSE_WRITE_INTERVAL_MS:-}
-      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_AUTH: ${REDIS_AUTH:-myredissecret} # CHANGEME
       REDIS_TLS_ENABLED: ${REDIS_TLS_ENABLED:-false}
@@ -133,20 +135,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 1s
-
-  redis:
-    image: docker.io/redis:7
-    restart: always
-    # CHANGEME: row below to secure redis password
-    command: >
-      --requirepass ${REDIS_AUTH:-myredissecret}
-    ports:
-      - 127.0.0.1:9379:6379
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 3s
-      timeout: 10s
-      retries: 10
 
 volumes:
   langfuse_clickhouse_data:
